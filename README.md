@@ -104,7 +104,7 @@ Import them from **Menu → Import → Examples → @corbit2/node-red-corbit-sms
 ## Requirements
 
 - Node-RED 3.0 or later (tested with Node-RED 3.1, 4.1 and 5.0)
-- Node.js 18.17 or later (tested with Node.js 24)
+- Node.js 18.17 or later (tested with Node.js 18, 20, 22 and 24)
 
 ## Links
 
