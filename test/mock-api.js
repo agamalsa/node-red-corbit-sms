@@ -37,7 +37,10 @@ function createMockApi() {
 			return `http://127.0.0.1:${server.address().port}`;
 		},
 		stop() {
-			return new Promise((r) => server.close(r));
+			// fetch keeps connections open; close them so the server stops at once (Node 18).
+			const closed = new Promise((r) => server.close(r));
+			if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+			return closed;
 		},
 	};
 }
