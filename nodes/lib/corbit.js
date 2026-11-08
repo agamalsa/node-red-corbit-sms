@@ -59,15 +59,36 @@ function normalizeNumber(raw) {
 	return /^[1-9]\d{7,14}$/.test(digits) ? digits : undefined;
 }
 
-/** Splits a list given as text (commas, semicolons or new lines) or as an array. */
+// What separates one number from the next in a pasted list: comma, semicolon,
+// new line, tab, and the Arabic comma and semicolon (what the Arabic iPhone
+// keyboard types). A space alone is not a separator: see splitNumbers.
+const LIST_SEPARATORS = /[,;،؛\r\n\t]+/;
+// A piece that reads as one number written with spaces (as copied from phone contacts).
+const SPACED_NUMBER = /^\+?[0-9٠-٩۰-۹()\-\s]+$/;
+
+/**
+ * Splits a list given as text or as an array, the same way the Corbit SMS app does.
+ * "+966 50 123 4567" stays one number; "0501234567 0509876543" becomes two, because a
+ * piece is split on its spaces only when it is not a number once the spaces are removed.
+ */
 function splitNumbers(value) {
 	if (Array.isArray(value)) return value.flatMap((v) => splitNumbers(v));
 	if (value === null || value === undefined) return [];
 	if (typeof value === 'number') return [value];
-	return String(value)
-		.split(/[,;\r\n]+/)
-		.map((v) => v.trim())
-		.filter((v) => v !== '');
+	const tokens = [];
+	for (const piece of String(value).split(LIST_SEPARATORS)) {
+		const p = piece.trim();
+		if (p === '') continue;
+		if (SPACED_NUMBER.test(p)) {
+			const joined = p.replace(/\s+/g, '');
+			if (normalizeNumber(joined)) {
+				tokens.push(joined);
+				continue;
+			}
+		}
+		tokens.push(...p.split(/\s+/).filter((t) => t !== ''));
+	}
+	return tokens;
 }
 
 /** Checks the SMS text and returns it as a string (numbers, e.g. an OTP, are converted). */

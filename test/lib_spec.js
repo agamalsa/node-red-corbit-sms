@@ -210,3 +210,31 @@ describe('lib: review fixes', () => {
 		assert.equal(corbit.maskNumber('966501234567'), '…4567');
 	});
 });
+
+describe('lib: lists read like the Corbit SMS app', () => {
+	it('splits on Arabic commas, tabs and spaces between numbers, keeps spaced numbers whole', () => {
+		assert.deepEqual(corbit.splitNumbers('0501234567، 0551234567؛0561234567'), ['0501234567', '0551234567', '0561234567']);
+		assert.deepEqual(corbit.splitNumbers('0501234567	0551234567'), ['0501234567', '0551234567']);
+		assert.deepEqual(corbit.splitNumbers('0501234567 0509876543'), ['0501234567', '0509876543']);
+		assert.deepEqual(corbit.splitNumbers('+966 50 123 4567, 05 0987 6543'), ['+966501234567', '0509876543']);
+		assert.deepEqual(corbit.splitNumbers('+966 50 123 4567'), ['+966501234567']);
+		assert.deepEqual(corbit.splitNumbers('٠٥٠١٢٣٤٥٦٧ 0551234567'), ['٠٥٠١٢٣٤٥٦٧', '0551234567']);
+		// Extra words become their own invalid tokens, so a bulk send stops before sending.
+		assert.deepEqual(corbit.splitNumbers('966501234567 ext 12'), ['966501234567', 'ext', '12']);
+	});
+
+	it('a bulk send with an Arabic-comma list sends to every number', async () => {
+		const api = createMockApi();
+		const base = await api.start();
+		try {
+			api.reply(ok({ status: 'Success', data: { message: { id: 'b', status: 'pending' } } }));
+			const r = await corbit.sendBulkSms({ token: 't', baseUrl: base }, { sender: 'A', numbers: '0501234567، 0551234567 0561234567', message: 'hi' });
+			assert.deepEqual(r.numbers, ['966501234567', '966551234567', '966561234567']);
+			await assert.rejects(corbit.sendBulkSms({ token: 't', baseUrl: base }, { sender: 'A', numbers: '966501234567 ext 12', message: 'hi' }), /Invalid mobile numbers: ext, 12/);
+			assert.equal(api.requests.length, 1);
+		} finally {
+			await api.stop();
+		}
+	});
+});
+

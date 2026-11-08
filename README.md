@@ -49,7 +49,7 @@ By default the node reads these message properties. Each field can be changed to
 |---|---|---|
 | `msg.payload` | Send, Send to many | Text of the SMS, up to 1600 characters. Numbers (such as an OTP) are accepted. |
 | `msg.to` | Send | Mobile number, e.g. `966501234567` |
-| `msg.numbers` | Send to many | Array of numbers, or text separated by commas or new lines |
+| `msg.numbers` | Send to many | Array of numbers, or text separated by commas (also the Arabic « ، »), semicolons, tabs, new lines or spaces |
 | `msg.messageId` | Get status, Get report | The `messageId` returned by a send |
 | `msg.sender` | Send, Send to many | Sender name, used when the **Sender** field is empty |
 | `msg.allowDuplicate` | Send, Send to many | `true` or `false`; overrides the **Duplicates** box |

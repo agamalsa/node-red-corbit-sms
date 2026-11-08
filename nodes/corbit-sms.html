@@ -306,7 +306,7 @@ By default the node reads these message properties. You can change each field to
 
 : payload (string | number) : the text of the SMS, up to 1600 characters (Send and Send to many).
 : to (string) : the mobile number (Send). Use the international format, e.g. `966501234567`.
-: numbers (array | string) : the mobile numbers (Send to many), as an array or as text separated by commas or new lines.
+: numbers (array | string) : the mobile numbers (Send to many), as an array or as text separated by commas (also the Arabic « ، »), semicolons, tabs, new lines or spaces.
 : messageId (string) : the ID returned by a send (Get message status, Get delivery report).
 : sender (string) : the sender name, used when the Sender field is empty.
 : allowDuplicate (boolean) : `true` sends even if the same text went to the same number in the last hour; `false` blocks it even if the box is ticked.

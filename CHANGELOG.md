@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2 (2026-11-08)
+
+- Lists of numbers are read like the Corbit SMS app: the Arabic comma and semicolon (« ، » « ؛ », typed by the Arabic iPhone keyboard) and tabs (from a spreadsheet) separate numbers too, and numbers separated only by spaces are read one by one. A number copied from phone contacts with spaces, such as `+966 50 123 4567`, stays one number.
+
 ## 1.0.1 (2026-11-08)
 
 - No change to the node itself.
