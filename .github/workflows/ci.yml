@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The oldest supported pair, the previous major, and the current one.
+          - { node: 18, nodered: 3 }
+          - { node: 20, nodered: 4 }
+          - { node: 22, nodered: 5 }
+          - { node: 24, nodered: 5 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm install --no-audit --no-fund --no-save --no-package-lock node-red@${{ matrix.nodered }} node-red-node-test-helper@0.3.6 mocha@10
+      - run: npx mocha "test/**/*_spec.js" --exit

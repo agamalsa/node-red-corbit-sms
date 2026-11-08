@@ -1,0 +1,28 @@
+# Publishes the package to npm when a version tag (e.g. 1.0.1) is pushed.
+# npm trusts this workflow directly (Trusted Publishing), so no token is stored
+# in the repository, and every release carries a provenance statement.
+name: Publish
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Check the tag matches package.json
+        run: test "$(node -p "require('./package.json').version")" = "${GITHUB_REF_NAME}"
+      - run: npm publish --provenance --access public

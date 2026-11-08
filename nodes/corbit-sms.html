@@ -1,0 +1,351 @@
+<!-- ===================================================== account (config) -->
+<script type="text/javascript">
+	RED.nodes.registerType('corbit-sms-account', {
+		category: 'config',
+		paletteLabel: 'Corbit SMS account',
+		defaults: {
+			name: { value: '' },
+			baseUrl: {
+				value: 'https://api.corbit.sa',
+				required: true,
+				validate: RED.validators.regex(/^(https:\/\/[^\s/]+|http:\/\/(localhost|127\.0\.0\.1|\[::1\])([:/]|$))/i),
+			},
+		},
+		credentials: {
+			apiToken: { type: 'password', required: true },
+		},
+		label: function () {
+			return this.name || 'Corbit SMS account';
+		},
+		oneditprepare: function () {
+			const id = this.id;
+			$('#corbit-sms-test').on('click', function (e) {
+				e.preventDefault();
+				const out = $('#corbit-sms-test-result');
+				out.css('color', '').text('Testing…');
+				$.ajax({
+					url: 'corbit-sms/test',
+					type: 'POST',
+					contentType: 'application/json',
+					data: JSON.stringify({
+						account: id,
+						apiToken: $('#node-config-input-apiToken').val(),
+						baseUrl: $('#node-config-input-baseUrl').val(),
+					}),
+				})
+					.done(function (r) {
+						out.css('color', 'green').text('Connected. Balance: ' + r.balance);
+					})
+					.fail(function (x) {
+						const r = x.responseJSON || {};
+						out.css('color', '#c00').text((r.error || 'Failed') + (r.hint ? ' — ' + r.hint : ''));
+					});
+			});
+		},
+	});
+</script>
+
+<script type="text/html" data-template-name="corbit-sms-account">
+	<div class="form-row">
+		<label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-config-input-name" placeholder="Corbit SMS account" />
+	</div>
+	<div class="form-row">
+		<label for="node-config-input-apiToken"><i class="fa fa-key"></i> API token</label>
+		<input type="password" id="node-config-input-apiToken" placeholder="From sms.corbit.sa" />
+	</div>
+	<div class="form-row">
+		<label for="node-config-input-baseUrl"><i class="fa fa-globe"></i> Base URL</label>
+		<input type="text" id="node-config-input-baseUrl" placeholder="https://api.corbit.sa" />
+	</div>
+	<div class="form-row">
+		<label></label>
+		<button type="button" class="red-ui-button" id="corbit-sms-test"><i class="fa fa-plug"></i> Test connection</button>
+	</div>
+	<div class="form-row">
+		<label></label>
+		<span id="corbit-sms-test-result" style="display:inline-block; width:70%;"></span>
+	</div>
+	<div class="form-tips">
+		Copy the API token from your account at <b>sms.corbit.sa</b>. Keep the base URL as
+		<code>https://api.corbit.sa</code> unless Corbit support gives you another address.
+	</div>
+</script>
+
+<script type="text/markdown" data-help-name="corbit-sms-account">
+Holds the API token of your Corbit SMS account. Several Corbit SMS nodes can share one account.
+
+### Properties
+
+- **API token**: the token from your account at [sms.corbit.sa](https://sms.corbit.sa). It is stored with the Node-RED credentials and is not exported with the flow.
+- **Base URL**: keep `https://api.corbit.sa` unless Corbit support gives you another address.
+
+**Test connection** reads your balance with the token you typed, before you deploy.
+</script>
+
+<!-- ================================================================ node -->
+<script type="text/javascript">
+	(function () {
+		const OPERATIONS = {
+			send: 'Send SMS',
+			sendBulk: 'Send SMS to many numbers',
+			getStatus: 'Get message status',
+			getReport: 'Get delivery report',
+			getBalance: 'Get balance',
+			getSenderNames: 'Get sender names',
+		};
+		const ROWS = {
+			send: ['sender', 'to', 'message', 'options'],
+			sendBulk: ['sender', 'numbers', 'message', 'options'],
+			getStatus: ['messageId'],
+			getReport: ['messageId'],
+			getBalance: [],
+			getSenderNames: ['senderStatus'],
+		};
+		const ALL_ROWS = ['sender', 'to', 'numbers', 'message', 'options', 'messageId', 'senderStatus'];
+
+		RED.nodes.registerType('corbit-sms', {
+			category: 'network',
+			color: '#F6A26B',
+			defaults: {
+				name: { value: '' },
+				account: { value: '', type: 'corbit-sms-account', required: true },
+				operation: { value: 'send' },
+				sender: { value: '' },
+				senderType: { value: 'str' },
+				to: { value: 'to' },
+				toType: { value: 'msg' },
+				numbers: { value: 'numbers' },
+				numbersType: { value: 'msg' },
+				message: { value: 'payload' },
+				messageType: { value: 'msg' },
+				messageId: { value: 'messageId' },
+				messageIdType: { value: 'msg' },
+				idempotencyKey: { value: '' },
+				idempotencyKeyType: { value: 'none' },
+				allowDuplicate: { value: false },
+				senderStatus: { value: 'all' },
+			},
+			inputs: 1,
+			outputs: 1,
+			icon: 'corbit-sms.svg',
+			paletteLabel: 'Corbit SMS',
+			label: function () {
+				return this.name || OPERATIONS[this.operation] || 'Corbit SMS';
+			},
+			labelStyle: function () {
+				return this.name ? 'node_label_italic' : '';
+			},
+			outputLabels: function () {
+				return 'result in msg.payload';
+			},
+			oneditprepare: function () {
+				const node = this;
+				const anyTypes = ['msg', 'flow', 'global', 'str', 'env', 'jsonata'];
+				$('#node-input-sender').typedInput({ types: ['str', 'msg', 'flow', 'global', 'env'], typeField: '#node-input-senderType' });
+				$('#node-input-to').typedInput({ types: anyTypes, typeField: '#node-input-toType' });
+				$('#node-input-numbers').typedInput({ types: ['msg', 'flow', 'global', 'str', 'json', 'env', 'jsonata'], typeField: '#node-input-numbersType' });
+				$('#node-input-message').typedInput({ types: anyTypes, typeField: '#node-input-messageType' });
+				$('#node-input-messageId').typedInput({ types: ['msg', 'flow', 'global', 'str', 'env', 'jsonata'], typeField: '#node-input-messageIdType' });
+				$('#node-input-idempotencyKey').typedInput({
+					types: [{ value: 'none', label: 'none', hasValue: false }, 'msg', 'str', 'flow', 'global', 'env', 'jsonata'],
+					typeField: '#node-input-idempotencyKeyType',
+				});
+
+				// Switching a field from msg.<name> to a fixed value would keep the old
+				// property name as the value (the SMS would read "payload"), so clear it.
+				[['#node-input-to', 'to'], ['#node-input-numbers', 'numbers'], ['#node-input-message', 'payload'], ['#node-input-messageId', 'messageId']].forEach(function (f) {
+					let lastType = $(f[0]).typedInput('type');
+					$(f[0]).on('change', function (event, type) {
+						if (type && type !== lastType) {
+							if (type !== 'msg' && $(f[0]).typedInput('value') === f[1]) $(f[0]).typedInput('value', '');
+							lastType = type;
+						}
+					});
+				});
+
+				function showRows() {
+					const op = $('#node-input-operation').val();
+					ALL_ROWS.forEach(function (r) {
+						$('.corbit-row-' + r).not('.corbit-sender-pick-row').toggle(ROWS[op].indexOf(r) !== -1);
+					});
+					const hasList = $('#corbit-sms-sender-pick option').length > 0;
+					$('.corbit-sender-pick-row').toggle(hasList && ROWS[op].indexOf('sender') !== -1);
+				}
+				$('#node-input-operation').on('change', showRows);
+				showRows();
+
+				$('#corbit-sms-load-senders').on('click', function (e) {
+					e.preventDefault();
+					const pick = $('#corbit-sms-sender-pick');
+					const info = $('#corbit-sms-sender-info');
+					const accountId = $('#node-input-account').val();
+					if (!accountId || accountId === '_ADD_') {
+						info.css('color', '#c00').text('Choose or add an account first.');
+						return;
+					}
+					const account = RED.nodes.node(accountId) || {};
+					const creds = account.credentials || {};
+					info.css('color', '').text('Loading…');
+					$.ajax({
+						url: 'corbit-sms/senders',
+						type: 'POST',
+						contentType: 'application/json',
+						data: JSON.stringify({
+							account: accountId,
+							apiToken: typeof creds.apiToken === 'string' ? creds.apiToken : '',
+							baseUrl: account.baseUrl || '',
+						}),
+					})
+						.done(function (r) {
+							pick.empty().append($('<option>').val('').text('Choose a sender name…'));
+							const senders = r.senders || [];
+							senders.forEach(function (s) {
+								pick.append($('<option>').val(s).text(s));
+							});
+							$('.corbit-sender-pick-row').show();
+							info.css('color', '').text(senders.length ? senders.length + ' approved sender names' : 'No approved sender names on this account.');
+						})
+						.fail(function (x) {
+							const r = x.responseJSON || {};
+							info.css('color', '#c00').text((r.error || 'Failed') + (r.hint ? ' — ' + r.hint : ''));
+						});
+				});
+				$('#corbit-sms-sender-pick').on('change', function () {
+					const v = $(this).val();
+					if (v) $('#node-input-sender').typedInput('type', 'str').typedInput('value', v);
+				});
+			},
+		});
+	})();
+</script>
+
+<script type="text/html" data-template-name="corbit-sms">
+	<div class="form-row">
+		<label for="node-input-account"><i class="fa fa-user"></i> Account</label>
+		<input type="text" id="node-input-account" />
+	</div>
+	<div class="form-row">
+		<label for="node-input-operation"><i class="fa fa-wrench"></i> Operation</label>
+		<select id="node-input-operation" style="width:70%;">
+			<option value="send">Send SMS</option>
+			<option value="sendBulk">Send SMS to many numbers</option>
+			<option value="getStatus">Get message status</option>
+			<option value="getReport">Get delivery report</option>
+			<option value="getBalance">Get balance</option>
+			<option value="getSenderNames">Get sender names</option>
+		</select>
+	</div>
+
+	<div class="form-row corbit-row-sender">
+		<label for="node-input-sender"><i class="fa fa-id-badge"></i> Sender</label>
+		<input type="text" id="node-input-sender" style="width:70%;" placeholder="e.g. MyBrand" />
+		<input type="hidden" id="node-input-senderType" />
+	</div>
+	<div class="form-row corbit-row-sender">
+		<label></label>
+		<button type="button" class="red-ui-button" id="corbit-sms-load-senders"><i class="fa fa-list"></i> Load my sender names</button>
+		<span id="corbit-sms-sender-info" style="margin-left:8px;"></span>
+	</div>
+	<div class="form-row corbit-row-sender corbit-sender-pick-row" style="display:none;">
+		<label></label>
+		<select id="corbit-sms-sender-pick" style="width:70%;"></select>
+	</div>
+	<div class="form-row corbit-row-to">
+		<label for="node-input-to"><i class="fa fa-mobile"></i> To</label>
+		<input type="text" id="node-input-to" style="width:70%;" />
+		<input type="hidden" id="node-input-toType" />
+	</div>
+	<div class="form-row corbit-row-numbers">
+		<label for="node-input-numbers"><i class="fa fa-users"></i> Numbers</label>
+		<input type="text" id="node-input-numbers" style="width:70%;" />
+		<input type="hidden" id="node-input-numbersType" />
+	</div>
+	<div class="form-row corbit-row-message">
+		<label for="node-input-message"><i class="fa fa-comment"></i> Message</label>
+		<input type="text" id="node-input-message" style="width:70%;" />
+		<input type="hidden" id="node-input-messageType" />
+	</div>
+	<div class="form-row corbit-row-options">
+		<label for="node-input-allowDuplicate"><i class="fa fa-clone"></i> Duplicates</label>
+		<input type="checkbox" id="node-input-allowDuplicate" style="display:inline-block; width:auto; vertical-align:top;" />
+		<label for="node-input-allowDuplicate" style="width:auto;">Allow the same text to the same number within an hour</label>
+	</div>
+	<div class="form-row corbit-row-options">
+		<label for="node-input-idempotencyKey"><i class="fa fa-shield"></i> Idempotency</label>
+		<input type="text" id="node-input-idempotencyKey" style="width:70%;" />
+		<input type="hidden" id="node-input-idempotencyKeyType" />
+	</div>
+	<div class="form-row corbit-row-messageId">
+		<label for="node-input-messageId"><i class="fa fa-hashtag"></i> Message ID</label>
+		<input type="text" id="node-input-messageId" style="width:70%;" />
+		<input type="hidden" id="node-input-messageIdType" />
+	</div>
+	<div class="form-row corbit-row-senderStatus">
+		<label for="node-input-senderStatus"><i class="fa fa-filter"></i> Status</label>
+		<select id="node-input-senderStatus" style="width:70%;">
+			<option value="all">All</option>
+			<option value="approved">Approved</option>
+			<option value="pending">Pending</option>
+			<option value="rejected">Rejected</option>
+			<option value="expired">Expired</option>
+		</select>
+	</div>
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Name" />
+	</div>
+</script>
+
+<script type="text/markdown" data-help-name="corbit-sms">
+Sends SMS messages with [Corbit SMS](https://sms.corbit.sa) and checks their delivery, balance and sender names.
+
+### Inputs
+
+By default the node reads these message properties. You can change each field to another property, a fixed value, a flow or global value, or an environment variable.
+
+: payload (string | number) : the text of the SMS, up to 1600 characters (Send and Send to many).
+: to (string) : the mobile number (Send). Use the international format, e.g. `966501234567`.
+: numbers (array | string) : the mobile numbers (Send to many), as an array or as text separated by commas or new lines.
+: messageId (string) : the ID returned by a send (Get message status, Get delivery report).
+: sender (string) : the sender name, used when the Sender field is empty.
+: allowDuplicate (boolean) : `true` sends even if the same text went to the same number in the last hour; `false` blocks it even if the box is ticked.
+
+### Outputs
+
+: payload (object | array) : the result of the operation.
+
+- **Send SMS**: `{ messageId, status, to, senderName }`
+- **Send SMS to many numbers**: `{ messageId, status, recipients, numbers, senderName }`
+- **Get message status**: `{ messageId, status }`
+- **Get delivery report**: `{ messageId, jobId, recipients: [ ... ] }`, one entry per recipient
+- **Get balance**: `{ balance }`
+- **Get sender names**: an array of sender names with their status
+
+### Errors
+
+When a call fails the node reports the error so a **Catch** node can handle it, and adds
+`msg.corbitError` with `message`, `hint` and, when Corbit SMS gives them, `code` and `statusCode`.
+Nothing is sent when a field is invalid.
+
+### Details
+
+**Phone numbers.** Spaces, dashes, a leading `+` or `00` are removed. Saudi local numbers
+(`05XXXXXXXX`) become `9665XXXXXXXX`. Local numbers of other countries (starting with `0`)
+are rejected, so nothing goes to a wrong number.
+
+**Sender name.** Click **Load my sender names** to pick one of your approved names, or type it.
+
+**Duplicates.** Corbit SMS blocks the same text to the same number within one hour. Tick
+**Allow the same text…** (or set `msg.allowDuplicate = true`) for a resend on purpose, such as an OTP resend.
+
+**Safe retries.** Set **Idempotency** to a value that identifies the event behind the message, for
+example an order or request ID such as `msg.orderId`. If the same request is repeated with the same
+key, Corbit SMS returns the first result and does not send again. Don't use `msg._msgid` on its own:
+messages from a Split node, or sent to several nodes, share it, so only the first SMS would be sent.
+
+### References
+
+- [Corbit SMS API documentation](https://api.corbit.sa/doc)
+- [GitHub repository and issues](https://github.com/agamalsa/node-red-corbit-sms)
+</script>

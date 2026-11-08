@@ -1,0 +1,52 @@
+{
+  "name": "@corbit2/node-red-corbit-sms",
+  "version": "1.0.0",
+  "description": "Node-RED node for Corbit SMS: send SMS (single and bulk), check delivery status and reports, read the balance and sender names.",
+  "license": "MIT",
+  "author": {
+    "name": "Ahmed Gamal",
+    "email": "a.gamal@corbit.sa"
+  },
+  "homepage": "https://github.com/agamalsa/node-red-corbit-sms#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agamalsa/node-red-corbit-sms.git"
+  },
+  "bugs": {
+    "url": "https://github.com/agamalsa/node-red-corbit-sms/issues"
+  },
+  "keywords": [
+    "node-red",
+    "corbit",
+    "sms",
+    "otp",
+    "saudi-arabia"
+  ],
+  "node-red": {
+    "version": ">=3.0.0",
+    "nodes": {
+      "corbit-sms": "nodes/corbit-sms.js"
+    }
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "files": [
+    "nodes",
+    "examples",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "mocha \"test/**/*_spec.js\" --exit"
+  },
+  "devDependencies": {
+    "mocha": "^12.0.3",
+    "node-red": "^5.0.9",
+    "node-red-node-test-helper": "^0.3.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
