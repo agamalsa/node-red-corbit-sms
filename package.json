@@ -1,6 +1,6 @@
 {
   "name": "@corbit2/node-red-corbit-sms",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Node-RED node for Corbit SMS: send SMS (single and bulk), check delivery status and reports, read the balance and sender names.",
   "license": "MIT",
   "author": {

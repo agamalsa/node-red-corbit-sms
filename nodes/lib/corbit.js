@@ -56,6 +56,8 @@ function normalizeNumber(raw) {
 	}
 	// "+966 (0)50 …": drop the trunk zero after the Saudi country code.
 	if (/^9660\d{9}$/.test(digits)) digits = '966' + digits.slice(4);
+	// A Saudi mobile number is exactly 9665 + 8 digits; anything else would reach a wrong number.
+	if (digits.startsWith('9665') && !/^9665\d{8}$/.test(digits)) return undefined;
 	return /^[1-9]\d{7,14}$/.test(digits) ? digits : undefined;
 }
 
